@@ -1,5 +1,6 @@
 .env
 puns.db
+puns.json
 __pycache__/
 *.pyc
 .venv/
