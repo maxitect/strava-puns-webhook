@@ -6,8 +6,10 @@ services:
     container_name: strava-puns-webhook
     env_file:
       - .env
+    environment:
+      - DB_PATH=/app/data/puns.db
     volumes:
-      - ./puns.db:/app/puns.db
+      - ./data:/app/data
       - ./puns.json:/app/puns.json:ro
     restart: unless-stopped
     networks:
