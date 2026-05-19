@@ -1,0 +1,18 @@
+services:
+  strava-puns-webhook:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: strava-puns-webhook
+    env_file:
+      - .env
+    volumes:
+      - ./puns.db:/app/puns.db
+      - ./puns.json:/app/puns.json:ro
+    restart: unless-stopped
+    networks:
+      - cf-tunnel
+
+networks:
+  cf-tunnel:
+    external: true
