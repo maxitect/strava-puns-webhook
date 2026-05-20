@@ -61,69 +61,40 @@ DB_PATH=puns.db
 PORT=5000
 ```
 
-### 5. Initialise the database
+### 5. Add puns list
+
+Copy `puns.json` to the project directory. This file is gitignored — manage it locally.
+
+### 6. Deploy with Docker
+
+Ensure the `cf-tunnel` external network exists on the host and set it up with your own tunnel access:
 
 ```bash
-poetry run python init_db.py
+docker network create cf-tunnel
 ```
 
-This creates `puns.db`, seeds puns from `puns.json`, inserts past ride names from your Strava history as already-used, and marks any puns whose titles match past activity names.
-
-### 6. Expose port publicly
-
-Expose the server port via your preferred tunnel or reverse proxy so Strava can reach it. Note the public URL (e.g. `https://webhook.yourdomain.com`).
-
-### 7. Start the server
+Then start the container:
 
 ```bash
-poetry run python server.py
+docker compose up -d
 ```
 
-### 8. Register the Strava webhook
+On first start (no `puns.db` present), the container automatically runs `init_db.py` — creates the database, seeds puns from `puns.json`, and backfills used puns from your Strava history. Subsequent restarts skip this step.
+
+### 7. Register the Strava webhook
 
 ```bash
 curl -X POST https://www.strava.com/api/v3/push_subscriptions \
   -d client_id=YOUR_CLIENT_ID \
   -d client_secret=YOUR_CLIENT_SECRET \
-  -d callback_url=https://YOUR_PUBLIC_URL/webhook \
-  -d verify_token=YOUR_WEBHOOK_VERIFY_TOKEN
+  -d callback_url=https://yoursite.com/webhook \
+  -d verify_token=YOUR_WEBHOOK_TOKEN
 ```
 
-### 9. Verify the subscription
+### 8. Verify the subscription
 
 ```bash
 curl "https://www.strava.com/api/v3/push_subscriptions?client_id=YOUR_CLIENT_ID&client_secret=YOUR_CLIENT_SECRET"
-```
-
-## Running as a systemd service
-
-Create `/etc/systemd/system/strava-puns.service`:
-
-```ini
-[Unit]
-Description=Strava Puns Webhook
-After=network.target
-
-[Service]
-User=maxime
-WorkingDirectory=/home/maxime/strava-puns-webhook
-EnvironmentFile=/home/maxime/strava-puns-webhook/.env
-ExecStart=/home/maxime/.local/bin/poetry run python server.py
-Restart=on-failure
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Then:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable strava-puns
-sudo systemctl start strava-puns
-sudo journalctl -u strava-puns -f
 ```
 
 ## Adding new puns
@@ -131,15 +102,15 @@ sudo journalctl -u strava-puns -f
 **Option A** — directly in the database:
 
 ```bash
-sqlite3 puns.db "INSERT OR IGNORE INTO puns (title) VALUES ('My New Pun');"
+docker exec -it strava-puns-webhook sqlite3 puns.db "INSERT OR IGNORE INTO puns (title) VALUES ('My New Pun');"
 ```
 
 **Option B** — append to `puns.json` and re-run `init_db.py`:
 
 ```bash
-poetry run python init_db.py
+docker exec strava-puns-webhook python init_db.py
 ```
 
 Re-running is safe; `INSERT OR IGNORE` won't overwrite existing rows.
 
-Note: `puns.json` is gitignored — edit it locally to customise your pun list.
+Note: `puns.json` is gitignored — edit it locally and it's bind-mounted into the container.
